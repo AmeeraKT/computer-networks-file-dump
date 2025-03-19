@@ -1,0 +1,165 @@
+{
+    "Reservations": [
+        {
+            "ReservationId": "r-0854e2029a9c8adf0",
+            "OwnerId": "820745380026",
+            "Groups": [],
+            "Instances": [
+                {
+                    "Architecture": "x86_64",
+                    "BlockDeviceMappings": [
+                        {
+                            "DeviceName": "/dev/sda1",
+                            "Ebs": {
+                                "AttachTime": "2025-03-19T16:09:52+00:00",
+                                "DeleteOnTermination": true,
+                                "Status": "attached",
+                                "VolumeId": "vol-0d3a416cbad7ef130"
+                            }
+                        }
+                    ],
+                    "ClientToken": "4d78cd11-6f15-49a0-ae21-399fdcb76d5d",
+                    "EbsOptimized": false,
+                    "EnaSupport": true,
+                    "Hypervisor": "xen",
+                    "IamInstanceProfile": {
+                        "Arn": "arn:aws:iam::820745380026:instance-profile/LabInstanceProfile",
+                        "Id": "AIPA36GB4UC5DVS2EZMSO"
+                    },
+                    "NetworkInterfaces": [
+                        {
+                            "Association": {
+                                "IpOwnerId": "820745380026",
+                                "PublicDnsName": "ec2-44-207-85-203.compute-1.amazonaws.com",
+                                "PublicIp": "44.207.85.203"
+                            },
+                            "Attachment": {
+                                "AttachTime": "2025-03-19T16:09:51+00:00",
+                                "AttachmentId": "eni-attach-064f9ca5b21e44171",
+                                "DeleteOnTermination": true,
+                                "DeviceIndex": 0,
+                                "Status": "attached",
+                                "NetworkCardIndex": 0
+                            },
+                            "Description": "",
+                            "Groups": [
+                                {
+                                    "GroupId": "sg-0b62a8d54451f7cb2",
+                                    "GroupName": "Tutorial HTTP - Compnet"
+                                }
+                            ],
+                            "Ipv6Addresses": [],
+                            "MacAddress": "06:9f:86:ae:22:33",
+                            "NetworkInterfaceId": "eni-0a1f84e0af6200dc4",
+                            "OwnerId": "820745380026",
+                            "PrivateDnsName": "i-0fdd5d9abf3b08a21.ec2.internal",
+                            "PrivateIpAddress": "172.31.60.198",
+                            "PrivateIpAddresses": [
+                                {
+                                    "Association": {
+                                        "IpOwnerId": "820745380026",
+                                        "PublicDnsName": "ec2-44-207-85-203.compute-1.amazonaws.com",
+                                        "PublicIp": "44.207.85.203"
+                                    },
+                                    "Primary": true,
+                                    "PrivateDnsName": "i-0fdd5d9abf3b08a21.ec2.internal",
+                                    "PrivateIpAddress": "172.31.60.198"
+                                }
+                            ],
+                            "SourceDestCheck": true,
+                            "Status": "in-use",
+                            "SubnetId": "subnet-0bab1675bbb1eb0bb",
+                            "VpcId": "vpc-0aab73b957dd18d46",
+                            "InterfaceType": "interface",
+                            "Operator": {
+                                "Managed": false
+                            }
+                        }
+                    ],
+                    "RootDeviceName": "/dev/sda1",
+                    "RootDeviceType": "ebs",
+                    "SecurityGroups": [
+                        {
+                            "GroupId": "sg-0b62a8d54451f7cb2",
+                            "GroupName": "Tutorial HTTP - Compnet"
+                        }
+                    ],
+                    "SourceDestCheck": true,
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "vm-1-ameera-2306256223"
+                        }
+                    ],
+                    "VirtualizationType": "hvm",
+                    "CpuOptions": {
+                        "CoreCount": 1,
+                        "ThreadsPerCore": 1
+                    },
+                    "CapacityReservationSpecification": {
+                        "CapacityReservationPreference": "open"
+                    },
+                    "HibernationOptions": {
+                        "Configured": false
+                    },
+                    "MetadataOptions": {
+                        "State": "applied",
+                        "HttpTokens": "required",
+                        "HttpPutResponseHopLimit": 2,
+                        "HttpEndpoint": "enabled",
+                        "HttpProtocolIpv6": "disabled",
+                        "InstanceMetadataTags": "disabled"
+                    },
+                    "EnclaveOptions": {
+                        "Enabled": false
+                    },
+                    "BootMode": "uefi-preferred",
+                    "PlatformDetails": "Linux/UNIX",
+                    "UsageOperation": "RunInstances",
+                    "UsageOperationUpdateTime": "2025-03-19T16:09:51+00:00",
+                    "PrivateDnsNameOptions": {
+                        "HostnameType": "resource-name",
+                        "EnableResourceNameDnsARecord": true,
+                        "EnableResourceNameDnsAAAARecord": false
+                    },
+                    "MaintenanceOptions": {
+                        "AutoRecovery": "default"
+                    },
+                    "CurrentInstanceBootMode": "legacy-bios",
+                    "NetworkPerformanceOptions": {
+                        "BandwidthWeighting": "default"
+                    },
+                    "Operator": {
+                        "Managed": false
+                    },
+                    "InstanceId": "i-0fdd5d9abf3b08a21",
+                    "ImageId": "ami-04b4f1a9cf54c11d0",
+                    "State": {
+                        "Code": 16,
+                        "Name": "running"
+                    },
+                    "PrivateDnsName": "i-0fdd5d9abf3b08a21.ec2.internal",
+                    "PublicDnsName": "ec2-44-207-85-203.compute-1.amazonaws.com",
+                    "StateTransitionReason": "",
+                    "KeyName": "Compnet - Ameera",
+                    "AmiLaunchIndex": 0,
+                    "ProductCodes": [],
+                    "InstanceType": "t2.micro",
+                    "LaunchTime": "2025-03-19T16:09:51+00:00",
+                    "Placement": {
+                        "GroupName": "",
+                        "Tenancy": "default",
+                        "AvailabilityZone": "us-east-1e"
+                    },
+                    "Monitoring": {
+                        "State": "disabled"
+                    },
+                    "SubnetId": "subnet-0bab1675bbb1eb0bb",
+                    "VpcId": "vpc-0aab73b957dd18d46",
+                    "PrivateIpAddress": "172.31.60.198",
+                    "PublicIpAddress": "44.207.85.203"
+                }
+            ]
+        }
+    ]
+}
