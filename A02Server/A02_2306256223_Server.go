@@ -109,16 +109,12 @@ func handleRequest(req HttpRequest) HttpResponse {
 
 	if req.URI == "/" {
 		body := "<html><body><h1>Halo, dunia! Aku Ameera Khaira Tawfiqa</h1></body></html>"
-		response := HttpResponse{
-			StatusCode: 200,
-			Status:     "OK",
-			Version:    "HTTP/1.1",
-			Headers: map[string]string{
-				"Content-Type": "text/html",
-			},
-			Body: body,
-		}
-
+		resp.StatusCode = 200
+		resp.StatusText = "OK"
+		resp.Headers["Content-Type"] = "text/html"
+		resp.Body = body
+		resp.Headers["Content-Length"] = fmt.Sprint(len(body))
+		return resp
 	}
 
 	u, err := url.Parse(req.URI)
