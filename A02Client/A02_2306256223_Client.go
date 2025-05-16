@@ -1,7 +1,7 @@
 /*
  * FWS/CSL/VauLSMorg 2025
  * CompNetSec 2024-2 A02
- * Don't forget to rename the file to client.go
+ * Don't forget to rename the file to A02_2306256223_Client.go
  */
 
 package main
@@ -11,191 +11,177 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
-	"syscall"
 )
+
+// ─── MAIN ─────────────────────────────────────────────────────────────
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	// TODO: Get URL and accept type from user input
 	fmt.Print("input the url: ")
 	rawURL, _ := reader.ReadString('\n')
 	rawURL = strings.TrimSpace(rawURL)
 
 	fmt.Print("input the data type: ")
-	accept, _ := reader.ReadString('\n')
-	accept = strings.TrimSpace(accept)
+	dataType, _ := reader.ReadString('\n')
+	dataType = strings.TrimSpace(strings.ToLower(dataType))
 
-	// TODO: Parse URL and extract host/port
-	parsedURL, err := url.Parse(rawURL)
+	acceptHeader := getAcceptHeader(dataType)
+	if acceptHeader == "" {
+		fmt.Println("unsupported data type:", dataType)
+		return
+	}
+
+	u, err := url.Parse(rawURL)
 	if err != nil {
-		fmt.Println("invalid url")
+		fmt.Println("invalid URL:", err)
 		return
 	}
-	host, port, err := splitHostPort(parsedURL.Host)
+
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		port = "80"
+	}
+
+	addr := net.JoinHostPort(host, port)
+
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		fmt.Println("invalid host:port")
+		fmt.Println("connection failed:", err)
 		return
 	}
-	ip, err := parseIPv4(host)
+	defer conn.Close()
+
+	path := u.RequestURI()
+	if path == "" {
+		path = "/"
+	}
+
+	// ─── Send HTTP Request ─────────────────────────────────────────────
+	request := fmt.Sprintf(
+		"GET %s HTTP/1.1\r\nHost: %s\r\nAccept: %s\r\nConnection: close\r\n\r\n",
+		path, u.Hostname(), acceptHeader)
+
+	_, err = conn.Write([]byte(request))
 	if err != nil {
-		fmt.Println("invalid ipv4")
+		fmt.Println("write failed:", err)
 		return
 	}
-	portNum, _ := strconv.Atoi(port)
 
-	// TODO: Create socket and establish connection
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+	// ─── Read Response ────────────────────────────────────────────────
+	responseBytes, err := io.ReadAll(conn)
 	if err != nil {
-		fmt.Println("socket error:", err)
+		fmt.Println("read failed:", err)
 		return
 	}
-	defer syscall.Close(fd)
+	response := string(responseBytes)
 
-	sa := &syscall.SockaddrInet4{Port: portNum, Addr: ip}
-	if err := syscall.Connect(fd, sa); err != nil {
-		fmt.Println("connect error:", err)
-		return
-	}
-
-	// TODO: Send HTTP request
-	request := fmt.Sprintf("GET %s HTTP/1.1\r\n", parsedURL.RequestURI())
-	request += fmt.Sprintf("Host: %s\r\n", parsedURL.Host)
-	request += fmt.Sprintf("Accept: %s\r\n", accept)
-	request += "Connection: close\r\n\r\n"
-
-	syscall.Write(fd, []byte(request))
-
-	// TODO: Read HTTP response (status, headers, body)
-	var buf [4096]byte
-	n, _ := syscall.Read(fd, buf[:])
-	resp := string(buf[:n])
-
-	parts := strings.SplitN(resp, "\r\n\r\n", 2)
-	if len(parts) != 2 {
+	// ─── Split Headers & Body ─────────────────────────────────────────
+	parts := strings.SplitN(response, "\r\n\r\n", 2)
+	if len(parts) < 2 {
 		fmt.Println("invalid response")
 		return
 	}
-	headerPart := parts[0]
-	body := parts[1]
 
-	// TODO: Parse and display response based on content type
-	headers := strings.Split(headerPart, "\r\n")
+	headerLines := strings.Split(parts[0], "\r\n")
+	body := parts[1]
+	status := headerLines[0]
+	fmt.Println("STATUS:", status)
+
 	contentType := ""
-	for _, h := range headers {
-		if strings.HasPrefix(strings.ToLower(h), "content-type:") {
-			contentType = strings.TrimSpace(h[len("content-type:"):])
-			break
+	for _, line := range headerLines[1:] {
+		if strings.HasPrefix(strings.ToLower(line), "content-type:") {
+			contentType = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
 		}
 	}
 
-	if strings.Contains(contentType, "json") {
-		var data interface{}
-		if err := json.Unmarshal([]byte(body), &data); err != nil {
-			fmt.Println("invalid json")
+	// ─── Process Response Body ────────────────────────────────────────
+	switch {
+	case strings.Contains(contentType, "application/json"):
+		var obj interface{}
+		if err := json.Unmarshal([]byte(body), &obj); err != nil {
+			fmt.Println("invalid JSON:", err)
 			return
 		}
-		for _, line := range flattenJSON(data) {
+		for _, line := range flattenJSON(obj) {
 			fmt.Println(line)
 		}
-	} else if strings.Contains(contentType, "xml") {
-		lines := flattenXML([]byte(body))
-		for _, line := range lines {
+	case strings.Contains(contentType, "application/xml"):
+		for _, line := range flattenXML([]byte(body)) {
 			fmt.Println(line)
 		}
-	} else {
+	default:
 		fmt.Println(body)
 	}
 }
 
-// helper to split "host:port" (default port 80)
-func splitHostPort(h string) (host, port string, _ error) {
-	// TODO: Implement host:port splitting
-	if strings.Contains(h, ":") {
-		parts := strings.Split(h, ":")
-		if len(parts) != 2 {
-			return "", "", fmt.Errorf("invalid hostport")
-		}
-		return parts[0], parts[1], nil
+// ─── HELPERS ─────────────────────────────────────────────────────────
+
+// getAcceptHeader returns the appropriate Accept header for input type
+func getAcceptHeader(dataType string) string {
+	switch dataType {
+	case "json":
+		return "application/json"
+	case "xml":
+		return "application/xml"
+	case "text/html", "html":
+		return "text/html"
+	default:
+		return ""
 	}
-	return h, "80", nil
 }
 
-// only dotted IPv4
-func parseIPv4(s string) ([4]byte, error) {
-	// TODO: Implement IPv4 parsing
-	var b [4]byte
-	parts := strings.Split(s, ".")
-	if len(parts) != 4 {
-		return b, fmt.Errorf("invalid ipv4")
-	}
-	for i := 0; i < 4; i++ {
-		n, err := strconv.Atoi(parts[i])
-		if err != nil || n < 0 || n > 255 {
-			return b, fmt.Errorf("invalid segment")
-		}
-		b[i] = byte(n)
-	}
-	return b, nil
-}
-
-func nonEmpty(s, d string) string {
-	// TODO: Implement non-empty string check
-	if s != "" {
-		return s
-	}
-	return d
-}
-
+// flattenJSON flattens nested JSON into lines of dot notation
 func flattenJSON(v interface{}) []string {
-	// TODO: Implement JSON flattening
 	var out []string
-	var f func(interface{}, string)
-	f = func(val interface{}, prefix string) {
-		switch vv := val.(type) {
+	var walk func(prefix string, val interface{})
+	walk = func(prefix string, val interface{}) {
+		switch val := val.(type) {
 		case map[string]interface{}:
-			for k, v2 := range vv {
-				f(v2, prefix+k+".")
+			for k, v2 := range val {
+				walk(prefix+"."+k, v2)
 			}
 		case []interface{}:
-			for i, v2 := range vv {
-				f(v2, fmt.Sprintf("%s%d.", prefix, i))
+			for i, v2 := range val {
+				walk(fmt.Sprintf("%s[%d]", prefix, i), v2)
 			}
 		default:
-			out = append(out, fmt.Sprintf("%s%v", prefix, vv))
+			out = append(out, fmt.Sprintf("%s: %v", prefix, val))
 		}
 	}
-	f(v, "")
+	walk("response", v)
 	return out
 }
 
+// flattenXML flattens XML recursively into lines
 func flattenXML(data []byte) []string {
-	// TODO: Implement XML flattening
+	type AnyXML struct {
+		XMLName xml.Name
+		Content []byte   `xml:",innerxml"`
+		Nodes   []AnyXML `xml:",any"`
+	}
+
+	var root AnyXML
+	xml.Unmarshal(data, &root)
+
 	var out []string
-	decoder := xml.NewDecoder(strings.NewReader(string(data)))
-	var stack []string
-	for {
-		t, err := decoder.Token()
-		if err != nil {
-			break
+	var walk func(prefix string, node AnyXML)
+	walk = func(prefix string, node AnyXML) {
+		if len(node.Nodes) == 0 {
+			out = append(out, fmt.Sprintf("%s: %s", prefix, strings.TrimSpace(string(node.Content))))
+			return
 		}
-		switch tok := t.(type) {
-		case xml.StartElement:
-			stack = append(stack, tok.Name.Local)
-		case xml.EndElement:
-			if len(stack) > 0 {
-				stack = stack[:len(stack)-1]
-			}
-		case xml.CharData:
-			s := strings.TrimSpace(string(tok))
-			if s != "" {
-				out = append(out, fmt.Sprintf("%s: %s", strings.Join(stack, "."), s))
-			}
+		for _, child := range node.Nodes {
+			walk(prefix+"."+child.XMLName.Local, child)
 		}
 	}
+	walk("response", root)
 	return out
 }
