@@ -107,14 +107,13 @@ func handleRequest(req HttpRequest) HttpResponse {
 		return resp
 	}
 
-	if req.URI == "/" {
-		body := "<html><body><h1>Halo, dunia! Aku Ameera Khaira Tawfiqa</h1></body></html>"
-		resp.StatusCode = 200
-		resp.StatusText = "OK"
-		resp.Headers["Content-Type"] = "text/html"
-		resp.Body = body
-		resp.Headers["Content-Length"] = fmt.Sprint(len(body))
-		return resp
+	if req.URI == "/" && req.Method == "GET" {
+		res.StatusCode = 200
+		res.StatusText = "OK"
+		res.Headers["Content-Type"] = "text/html"
+		res.Body = []byte(fmt.Sprintf("<html><body><h1>Halo, dunia! Aku %s</h1></body></html>", config.Name))
+		res.Headers["Content-Length"] = strconv.Itoa(len(res.Body))
+		return res
 	}
 
 	u, err := url.Parse(req.URI)
