@@ -114,10 +114,12 @@ func handleRequest(req HttpRequest) HttpResponse {
 			Status:     "OK",
 			Version:    "HTTP/1.1",
 			Headers: map[string]string{
-		    	"Content-Type": "text/html",
+				"Content-Type": "text/html",
 			},
 			Body: body,
 		}
+
+	}
 
 	u, err := url.Parse(req.URI)
 	if err != nil {
