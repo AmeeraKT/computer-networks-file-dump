@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
-	"syscall"
 )
 
 // ─── CONFIG ───────────────────────────────────────────────────────
@@ -53,11 +53,9 @@ type GResp struct {
 // ─── DECODER & ENCODER ──────────────────────────────────────────
 
 func RequestDecoder(bytestream []byte) HttpRequest {
-	// TODO: Implement request decoding
 	req := HttpRequest{Headers: make(map[string]string)}
 	lines := strings.Split(string(bytestream), "\r\n")
 
-	// parse request line
 	if len(lines) < 1 {
 		return req
 	}
@@ -68,7 +66,6 @@ func RequestDecoder(bytestream []byte) HttpRequest {
 		req.Proto = parts[2]
 	}
 
-	// parse headers
 	i := 1
 	for ; i < len(lines); i++ {
 		if lines[i] == "" {
@@ -90,7 +87,6 @@ func RequestDecoder(bytestream []byte) HttpRequest {
 }
 
 func ResponseEncoder(res HttpResponse) []byte {
-	// TODO: Implement response encoding
 	var buffer bytes.Buffer
 	buffer.WriteString(fmt.Sprintf("%s %d %s\r\n", res.Proto, res.StatusCode, res.StatusText))
 	for k, v := range res.Headers {
@@ -103,8 +99,6 @@ func ResponseEncoder(res HttpResponse) []byte {
 
 // ─── HANDLER ────────────────────────────────────────────────────
 func handleRequest(req HttpRequest) HttpResponse {
-
-	// Default response
 	resp := HttpResponse{
 		Proto:      "HTTP/1.1",
 		StatusCode: 404,
@@ -112,13 +106,10 @@ func handleRequest(req HttpRequest) HttpResponse {
 		Headers:    map[string]string{"Content-Length": "0"},
 	}
 
-	// TODO: Implement request handlers
-	// 1) GET /
 	if req.Method != "GET" {
 		return resp
 	}
 
-	// 2) GET /greet/{npm}[?name=...]
 	if req.URI == "/" {
 		body := []byte(fmt.Sprintf("Halo, dunia! Aku %s", config.Name))
 		resp.StatusCode = 200
@@ -129,7 +120,6 @@ func handleRequest(req HttpRequest) HttpResponse {
 		return resp
 	}
 
-	// parse URI
 	uri := req.URI
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -178,47 +168,31 @@ func handleRequest(req HttpRequest) HttpResponse {
 
 // ─── MAIN & SOCKET ──────────────────────────────────────────────
 func main() {
-	// Create socket
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "socket:", err)
-		return
-	}
-	defer syscall.Close(fd)
-
-	// Bind to address
-	sa := &syscall.SockaddrInet4{Port: config.Port}
-	copy(sa.Addr[:], []byte{0, 0, 0, 0})
-	if err := syscall.Bind(fd, sa); err != nil {
-		fmt.Fprintln(os.Stderr, "bind:", err)
-		return
-	}
-
-	// TODO: Implement bind, listen, and accept connections
-	if err := syscall.Listen(fd, 10); err != nil {
 		fmt.Fprintln(os.Stderr, "listen:", err)
 		return
 	}
+	defer ln.Close()
 
 	fmt.Printf("Listening on port %d ...\n", config.Port)
 
-	// TODO: Implement connection handling
 	for {
-		connFd, _, err := syscall.Accept(fd)
+		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "accept:", err)
 			continue
 		}
 
-		go func(cfd int) {
-		    defer syscall.Close(cfd)
-		    buf := make([]byte, 4096)
-		    n, _ := syscall.Read(cfd, buf)
-		
-		    req := RequestDecoder(buf[:n])
-		    resp := handleRequest(req)
-		    respBytes := ResponseEncoder(resp)
-		    syscall.Write(cfd, respBytes)
-		}(connFd)
+		go func(c net.Conn) {
+			defer c.Close()
+			buf := make([]byte, 4096)
+			n, _ := c.Read(buf)
+
+			req := RequestDecoder(buf[:n])
+			resp := handleRequest(req)
+			respBytes := ResponseEncoder(resp)
+			c.Write(respBytes)
+		}(conn)
 	}
 }
