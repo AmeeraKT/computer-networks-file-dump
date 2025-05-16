@@ -20,7 +20,7 @@ var config = struct {
 }{
 	Name: "Ameera Khaira Tawfiqa",
 	NPM:  "2306256223",
-	Port: 8080,
+	Port: 6223,
 }
 
 // ─── HTTP STRUCTS & ENCODERS ────────────────────────────────────
