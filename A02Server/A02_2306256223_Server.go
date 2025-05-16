@@ -210,15 +210,15 @@ func main() {
 			continue
 		}
 
-		go func(cfd syscall.Handle) {
-			defer syscall.Close(cfd)
-			buf := make([]byte, 4096)
-			n, _ := syscall.Read(cfd, buf)
-
-			req := RequestDecoder(buf[:n])
-			resp := handleRequest(req)
-			respBytes := ResponseEncoder(resp)
-			syscall.Write(cfd, respBytes)
+		go func(cfd int) {
+		    defer syscall.Close(cfd)
+		    buf := make([]byte, 4096)
+		    n, _ := syscall.Read(cfd, buf)
+		
+		    req := RequestDecoder(buf[:n])
+		    resp := handleRequest(req)
+		    respBytes := ResponseEncoder(resp)
+		    syscall.Write(cfd, respBytes)
 		}(connFd)
 	}
 }
