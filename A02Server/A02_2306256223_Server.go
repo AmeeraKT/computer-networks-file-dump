@@ -8,11 +8,10 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 )
 
-// ─── CONFIG ───────────────────────────────────────────────────────
 var config = struct {
 	Name string
 	NPM  string
@@ -23,7 +22,7 @@ var config = struct {
 	Port: 6223,
 }
 
-// ─── HTTP STRUCTS & ENCODERS ────────────────────────────────────
+// ─── HTTP STRUCTS ─────────────────────────────
 type HttpRequest struct {
 	Method  string
 	URI     string
@@ -51,8 +50,7 @@ type GResp struct {
 	Greeter string   `json:"Greeter"  xml:"Greeter"`
 }
 
-// ─── DECODER & ENCODER ──────────────────────────────────────────
-
+// ─── DECODER & ENCODER ───────────────────────
 func RequestDecoder(bytestream []byte) HttpRequest {
 	req := HttpRequest{Headers: make(map[string]string)}
 	lines := strings.Split(string(bytestream), "\r\n")
@@ -73,7 +71,9 @@ func RequestDecoder(bytestream []byte) HttpRequest {
 			break
 		}
 		if idx := strings.Index(lines[i], ":"); idx != -1 {
-			req.Headers[strings.ToLower(strings.TrimSpace(lines[i][:idx]))] = strings.TrimSpace(lines[i][idx+1:])
+			key := strings.ToLower(strings.TrimSpace(lines[i][:idx]))
+			val := strings.TrimSpace(lines[i][idx+1:])
+			req.Headers[key] = val
 		}
 	}
 
@@ -95,7 +95,7 @@ func ResponseEncoder(res HttpResponse) []byte {
 	return buf.Bytes()
 }
 
-// ─── HANDLER ────────────────────────────────────────────────────
+// ─── HANDLER ─────────────────────────────────
 func handleRequest(req HttpRequest) HttpResponse {
 	resp := HttpResponse{
 		Proto:      "HTTP/1.1",
@@ -108,12 +108,12 @@ func handleRequest(req HttpRequest) HttpResponse {
 		return resp
 	}
 
-	if req.URI == "/" && req.Method == "GET" {
+	// Root
+	if req.URI == "/" {
 		res := HttpResponse{
 			Proto:   "HTTP/1.1",
 			Headers: make(map[string]string),
 		}
-	
 		res.StatusCode = 200
 		res.StatusText = "OK"
 		res.Headers["Content-Type"] = "text/html"
@@ -122,32 +122,40 @@ func handleRequest(req HttpRequest) HttpResponse {
 		return res
 	}
 
-
 	u, err := url.Parse(req.URI)
 	if err != nil {
 		return resp
 	}
+
+	// /greet/{npm}?name=...
 	parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
 	if len(parts) >= 2 && parts[0] == "greet" {
 		if parts[1] != config.NPM {
 			return resp
 		}
-		name := u.Query().Get("name")
-		if name == "" {
-			name = config.Name
+		greeter := u.Query().Get("name")
+		greeter = strings.Trim(greeter, `"`) // remove extra quotes
+
+		if greeter == "" {
+			greeter = config.Name
 		}
+
 		student := Student{Nama: config.Name, Npm: config.NPM}
-		gresp := GResp{Student: student, Greeter: name}
+		gresp := GResp{Student: student, Greeter: greeter}
 		accept := strings.ToLower(req.Headers["accept"])
 		var body []byte
 		var ctype string
+
 		if strings.Contains(accept, "application/xml") && !strings.Contains(accept, "application/json") {
 			body, _ = xml.MarshalIndent(gresp, "", "  ")
 			ctype = "application/xml"
-		} else {
+		} else if strings.Contains(accept, "application/json") {
 			body, _ = json.MarshalIndent(gresp, "", "  ")
 			ctype = "application/json"
+		} else {
+			return resp
 		}
+
 		resp.StatusCode = 200
 		resp.StatusText = "OK"
 		resp.Body = body
@@ -158,7 +166,7 @@ func handleRequest(req HttpRequest) HttpResponse {
 	return resp
 }
 
-// ─── MAIN & SOCKET ──────────────────────────────────────────────
+// ─── MAIN ─────────────────────────────────────
 func main() {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", config.Port))
 	if err != nil {
