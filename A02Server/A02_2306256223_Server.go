@@ -19,7 +19,7 @@ var config = struct {
 }{
 	Name: "Ameera Khaira Tawfiqa",
 	NPM:  "2306256223",
-	Port: 6223,
+	Port: 8080,
 }
 
 // ─── HTTP STRUCTS & ENCODERS ────────────────────────────────────
@@ -71,11 +71,8 @@ func RequestDecoder(bytestream []byte) HttpRequest {
 		if lines[i] == "" {
 			break
 		}
-		colon := strings.Index(lines[i], ":")
-		if colon != -1 {
-			key := strings.TrimSpace(lines[i][:colon])
-			val := strings.TrimSpace(lines[i][colon+1:])
-			req.Headers[strings.ToLower(key)] = val
+		if idx := strings.Index(lines[i], ":"); idx != -1 {
+			req.Headers[strings.ToLower(strings.TrimSpace(lines[i][:idx]))] = strings.TrimSpace(lines[i][idx+1:])
 		}
 	}
 
@@ -87,14 +84,14 @@ func RequestDecoder(bytestream []byte) HttpRequest {
 }
 
 func ResponseEncoder(res HttpResponse) []byte {
-	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf("%s %d %s\r\n", res.Proto, res.StatusCode, res.StatusText))
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("%s %d %s\r\n", res.Proto, res.StatusCode, res.StatusText))
 	for k, v := range res.Headers {
-		buffer.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
 	}
-	buffer.WriteString("\r\n")
-	buffer.Write(res.Body)
-	return buffer.Bytes()
+	buf.WriteString("\r\n")
+	buf.Write(res.Body)
+	return buf.Bytes()
 }
 
 // ─── HANDLER ────────────────────────────────────────────────────
@@ -120,47 +117,36 @@ func handleRequest(req HttpRequest) HttpResponse {
 		return resp
 	}
 
-	uri := req.URI
-	u, err := url.Parse(uri)
+	u, err := url.Parse(req.URI)
 	if err != nil {
 		return resp
 	}
-
-	path := strings.TrimPrefix(u.Path, "/")
-	parts := strings.Split(path, "/")
-
+	parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
 	if len(parts) >= 2 && parts[0] == "greet" {
-		npm := parts[1]
-		if npm != config.NPM {
+		if parts[1] != config.NPM {
 			return resp
 		}
-
 		name := u.Query().Get("name")
 		if name == "" {
 			name = config.Name
 		}
-
 		student := Student{Nama: config.Name, Npm: config.NPM}
 		gresp := GResp{Student: student, Greeter: name}
-
 		accept := strings.ToLower(req.Headers["accept"])
 		var body []byte
-		var contentType string
-
+		var ctype string
 		if strings.Contains(accept, "application/xml") && !strings.Contains(accept, "application/json") {
 			body, _ = xml.MarshalIndent(gresp, "", "  ")
-			contentType = "application/xml"
+			ctype = "application/xml"
 		} else {
 			body, _ = json.MarshalIndent(gresp, "", "  ")
-			contentType = "application/json"
+			ctype = "application/json"
 		}
-
 		resp.StatusCode = 200
 		resp.StatusText = "OK"
 		resp.Body = body
-		resp.Headers["Content-Type"] = contentType
+		resp.Headers["Content-Type"] = ctype
 		resp.Headers["Content-Length"] = fmt.Sprint(len(body))
-		return resp
 	}
 
 	return resp
@@ -176,23 +162,19 @@ func main() {
 	defer ln.Close()
 
 	fmt.Printf("Listening on port %d ...\n", config.Port)
-
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "accept:", err)
 			continue
 		}
-
 		go func(c net.Conn) {
 			defer c.Close()
 			buf := make([]byte, 4096)
 			n, _ := c.Read(buf)
-
 			req := RequestDecoder(buf[:n])
-			resp := handleRequest(req)
-			respBytes := ResponseEncoder(resp)
-			c.Write(respBytes)
+			res := handleRequest(req)
+			c.Write(ResponseEncoder(res))
 		}(conn)
 	}
 }
