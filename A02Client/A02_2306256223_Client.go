@@ -1,7 +1,7 @@
 /*
  * FWS/CSL/VauLSMorg 2025
  * CompNetSec 2024-2 A02
- * Don't forget to rename the file to A02_2306256223_Client.go
+ * Don't forget to rename the file to client.go
  */
 
 package main
@@ -18,8 +18,6 @@ import (
 	"strings"
 )
 
-// ─── MAIN ─────────────────────────────────────────────────────────────
-
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -28,12 +26,12 @@ func main() {
 	rawURL = strings.TrimSpace(rawURL)
 
 	fmt.Print("input the data type: ")
-	dataType, _ := reader.ReadString('\n')
-	dataType = strings.TrimSpace(strings.ToLower(dataType))
+	dtype, _ := reader.ReadString('\n')
+	dtype = strings.TrimSpace(strings.ToLower(dtype))
 
-	acceptHeader := getAcceptHeader(dataType)
-	if acceptHeader == "" {
-		fmt.Println("unsupported data type:", dataType)
+	accept := dtype
+	if accept != "application/json" && accept != "application/xml" && accept != "text/html" {
+		fmt.Println("unsupported data type")
 		return
 	}
 
@@ -42,16 +40,13 @@ func main() {
 		fmt.Println("invalid URL:", err)
 		return
 	}
-
-	host := u.Hostname()
-	port := u.Port()
-	if port == "" {
-		port = "80"
+	h := u.Hostname()
+	p := u.Port()
+	if p == "" {
+		p = "80"
 	}
 
-	addr := net.JoinHostPort(host, port)
-
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.Dial("tcp", net.JoinHostPort(h, p))
 	if err != nil {
 		fmt.Println("connection failed:", err)
 		return
@@ -63,116 +58,85 @@ func main() {
 		path = "/"
 	}
 
-	// ─── Send HTTP Request ─────────────────────────────────────────────
-	request := fmt.Sprintf(
-		"GET %s HTTP/1.1\r\nHost: %s\r\nAccept: %s\r\nConnection: close\r\n\r\n",
-		path, u.Hostname(), acceptHeader)
+	// Send request
+	req := fmt.Sprintf("GET %s HTTP/1.1\r\nHost: %s\r\nAccept: %s\r\nConnection: close\r\n\r\n", path, u.Hostname(), accept)
+	conn.Write([]byte(req))
 
-	_, err = conn.Write([]byte(request))
-	if err != nil {
-		fmt.Println("write failed:", err)
-		return
+	// Read response
+	respBytes, _ := io.ReadAll(conn)
+	parts := strings.SplitN(string(respBytes), "\r\n\r\n", 2)
+	headLines := strings.Split(parts[0], "\r\n")
+	body := ""
+	if len(parts) == 2 {
+		body = parts[1]
 	}
 
-	// ─── Read Response ────────────────────────────────────────────────
-	responseBytes, err := io.ReadAll(conn)
-	if err != nil {
-		fmt.Println("read failed:", err)
-		return
-	}
-	response := string(responseBytes)
-
-	// ─── Split Headers & Body ─────────────────────────────────────────
-	parts := strings.SplitN(response, "\r\n\r\n", 2)
-	if len(parts) < 2 {
-		fmt.Println("invalid response")
-		return
+	// Parse status code
+	status := strings.Fields(headLines[0])
+	code := ""
+	if len(status) >= 2 {
+		code = status[1]
 	}
 
-	headerLines := strings.Split(parts[0], "\r\n")
-	body := parts[1]
-	status := headerLines[0]
-	fmt.Println("STATUS:", status)
+	// Output
+	fmt.Println("Status Code:", code)
+	fmt.Println("Body:", body)
 
-	contentType := ""
-	for _, line := range headerLines[1:] {
-		if strings.HasPrefix(strings.ToLower(line), "content-type:") {
-			contentType = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+	// Parsed for JSON/XML
+	ct := ""
+	for _, h := range headLines[1:] {
+		if strings.HasPrefix(strings.ToLower(h), "content-type:") {
+			ct = strings.TrimSpace(strings.SplitN(h, ":", 2)[1])
 		}
 	}
 
-	// ─── Process Response Body ────────────────────────────────────────
 	switch {
-	case strings.Contains(contentType, "application/json"):
+	case strings.Contains(ct, "application/json"):
 		var obj interface{}
-		if err := json.Unmarshal([]byte(body), &obj); err != nil {
-			fmt.Println("invalid JSON:", err)
-			return
-		}
-		for _, line := range flattenJSON(obj) {
-			fmt.Println(line)
-		}
-	case strings.Contains(contentType, "application/xml"):
-		for _, line := range flattenXML([]byte(body)) {
-			fmt.Println(line)
-		}
-	default:
-		fmt.Println(body)
+		json.Unmarshal([]byte(body), &obj)
+		parsed := flattenJSON(obj)
+		fmt.Println("Parsed:", parsed)
+	case strings.Contains(ct, "application/xml"):
+		parsed := flattenXML([]byte(body))
+		fmt.Println("Parsed:", parsed)
 	}
 }
 
-// ─── HELPERS ─────────────────────────────────────────────────────────
+// flattenJSON and flattenXML implementations follow your template logic
+// (retain your existing functions here)
 
-// getAcceptHeader returns the appropriate Accept header for input type
-func getAcceptHeader(dataType string) string {
-	switch dataType {
-	case "json":
-		return "application/json"
-	case "xml":
-		return "application/xml"
-	case "text/html", "html":
-		return "text/html"
-	default:
-		return ""
-	}
-}
-
-// flattenJSON flattens nested JSON into lines of dot notation
 func flattenJSON(v interface{}) []string {
 	var out []string
 	var walk func(prefix string, val interface{})
 	walk = func(prefix string, val interface{}) {
-		switch val := val.(type) {
+		switch vv := val.(type) {
 		case map[string]interface{}:
-			for k, v2 := range val {
+			for k, v2 := range vv {
 				walk(prefix+"."+k, v2)
 			}
 		case []interface{}:
-			for i, v2 := range val {
+			for i, v2 := range vv {
 				walk(fmt.Sprintf("%s[%d]", prefix, i), v2)
 			}
 		default:
-			out = append(out, fmt.Sprintf("%s: %v", prefix, val))
+			out = append(out, fmt.Sprintf("%s: %v", prefix, vv))
 		}
 	}
 	walk("response", v)
 	return out
 }
 
-// flattenXML flattens XML recursively into lines
 func flattenXML(data []byte) []string {
-	type AnyXML struct {
+	type Any struct {
 		XMLName xml.Name
 		Content []byte   `xml:",innerxml"`
-		Nodes   []AnyXML `xml:",any"`
+		Nodes   []Any    `xml:",any"`
 	}
-
-	var root AnyXML
+	var root Any
 	xml.Unmarshal(data, &root)
-
 	var out []string
-	var walk func(prefix string, node AnyXML)
-	walk = func(prefix string, node AnyXML) {
+	var walk func(prefix string, node Any)
+	walk = func(prefix string, node Any) {
 		if len(node.Nodes) == 0 {
 			out = append(out, fmt.Sprintf("%s: %s", prefix, strings.TrimSpace(string(node.Content))))
 			return
