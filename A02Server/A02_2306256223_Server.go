@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"strconv"
 )
 
 // ─── CONFIG ───────────────────────────────────────────────────────
@@ -108,6 +109,11 @@ func handleRequest(req HttpRequest) HttpResponse {
 	}
 
 	if req.URI == "/" && req.Method == "GET" {
+		res := HttpResponse{
+			Proto:   "HTTP/1.1",
+			Headers: make(map[string]string),
+		}
+	
 		res.StatusCode = 200
 		res.StatusText = "OK"
 		res.Headers["Content-Type"] = "text/html"
@@ -115,6 +121,7 @@ func handleRequest(req HttpRequest) HttpResponse {
 		res.Headers["Content-Length"] = strconv.Itoa(len(res.Body))
 		return res
 	}
+
 
 	u, err := url.Parse(req.URI)
 	if err != nil {
